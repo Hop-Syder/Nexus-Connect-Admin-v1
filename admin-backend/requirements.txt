@@ -1,0 +1,54 @@
+# FastAPI & Web Framework
+fastapi==0.110.1
+uvicorn[standard]==0.25.0
+python-multipart>=0.0.9
+gunicorn>=21.2.0
+
+# Supabase
+supabase==2.15.0
+
+# Pydantic & Settings
+pydantic>=2.6.4
+pydantic-settings>=2.2.1
+email-validator>=2.0.0
+
+# Environment & Config
+python-dotenv>=1.0.1
+
+# Security & Auth
+python-jose[cryptography]>=3.3.0
+pyjwt>=2.10.1
+passlib[bcrypt]>=1.7.4
+pyotp>=2.9.0
+
+# Database
+sqlalchemy>=2.0.27
+alembic>=1.13.1
+
+# Redis (cache, rate limiting)
+redis>=5.0.1
+
+# HTTP & Requests
+requests>=2.31.0
+httpx>=0.26.0
+
+# Email
+sendgrid>=6.11.0
+
+# Tasks & Jobs
+celery[redis]>=5.3.6
+beat>=0.3.0
+
+# Data Processing
+pandas>=2.2.0
+openpyxl>=3.1.2
+
+# Monitoring & Logging
+structlog>=24.1.0
+
+# Cryptography
+cryptography>=42.0.8
+
+# Utilities
+python-dateutil>=2.8.2
+pytz>=2024.1

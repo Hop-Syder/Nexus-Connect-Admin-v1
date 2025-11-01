@@ -1,0 +1,50 @@
+# ==========================================
+# ADMIN BACKEND - ENVIRONMENT VARIABLES
+# ==========================================
+
+# Supabase
+SUPABASE_URL=https://xfzdcljwyddhgzcpcifl.supabase.co
+SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmemRjbGp3eWRkaGd6Y3BjaWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0NDE1MDMsImV4cCI6MjA3NzAxNzUwM30.XTigTHTuWULbBNLf7iulhupMhYM2IxSgm4lzz2SvCvQ"
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmemRjbGp3eWRkaGd6Y3BjaWZsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTQ0MTUwMywiZXhwIjoyMDc3MDE3NTAzfQ.gkQsaUZF2RJehQkZpOX0wAim_2iX_TevboqscYN-MMQ
+SUPABASE_JWT_SECRET=F6kSstRARrWynJRz36L1HBMWpEmPW4vHpn5fNREQpT3mRIbHOdwgqBJcrLtIGfdjrimmPXZYwYq60/jpJKqT+Q==
+
+# App
+APP_NAME="Nexus Connect Admin API"
+APP_VERSION=2.1.0
+ENVIRONMENT=development
+ADMIN_DOMAIN=admin-connect.nexus-partners.xyz
+
+# CORS
+CORS_ORIGINS=http://localhost:3001,https://admin-connect.nexus-partners.xyz,https://admin.vercel.app
+
+# Security
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
+SECRET_KEY=Fy18B5tO7dN_mnakgqmMRTBKGVn-GoxpsBfdWAlbfubD67vJR-SuY6l7slYDJ4GV6stTQJ7xe-xWELUWWOrrxQ
+
+# Redis
+REDIS_URL=redis://default:CdUUihmdAqmSAdusErcVOtLogqYffFBN@redis.railway.internal:6379
+
+# Rate Limiting
+RATE_LIMIT_PER_MINUTE=100
+RATE_LIMIT_BURST=20
+
+# Email (SendGrid)
+SENDGRID_API_KEY=your-sendgrid-api-key
+EMAIL_FROM=noreply@nexus-partners.xyz
+EMAIL_FROM_NAME="Nexus Connect"
+
+# Payment (Moneroo)
+MONEROO_API_KEY=your-moneroo-api-key
+MONEROO_SECRET_KEY=your-moneroo-secret
+MONEROO_WEBHOOK_SECRET=your-webhook-secret
+MONEROO_BASE_URL=https://api.moneroo.io
+
+# Celery
+CELERY_BROKER_URL=redis://localhost:6379/1
+CELERY_RESULT_BACKEND=redis://localhost:6379/2
+
+# Monitoring
+LOG_LEVEL=INFO
+ENABLE_OPENTELEMETRY=false
