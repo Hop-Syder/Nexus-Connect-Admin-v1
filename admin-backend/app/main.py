@@ -54,13 +54,15 @@ app = FastAPI(
 # ===========================================
 
 # 1. CORS (premier)
+# Configuration CORS - DOIT être en premier
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    allow_origins=settings.cors_origins_list,  # URLs autorisées
+    allow_credentials=True,  # Autoriser les cookies/tokens
+    allow_methods=["*"],  # Toutes les méthodes (GET, POST, etc.)
+    allow_headers=["*"],  # Tous les headers
+    expose_headers=["*"],  # Headers exposés au client
+    max_age=3600,  # Cache preflight 1h
 
 # 2. Trusted Host (sécurité domaine)
 if settings.ENVIRONMENT == "production":
