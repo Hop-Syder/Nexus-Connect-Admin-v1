@@ -4,7 +4,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_ADMIN_API_URL || 'http://localhost:8002/api/admin/v1';
+  process.env.NEXT_PUBLIC_ADMIN_API_URL || 'https://nexus-connect-admin-production.up.railway.app';
 
 class AdminApiClient {
   private client: AxiosInstance;
