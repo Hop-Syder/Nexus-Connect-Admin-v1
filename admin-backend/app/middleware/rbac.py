@@ -73,7 +73,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
         try:
             # Récupérer le profil admin de l'utilisateur
             supabase = get_supabase_admin()
-            result = supabase.table('admin.admin_profiles') \
+            result = supabase.table('admin_profiles') \
                 .select('*') \
                 .eq('user_id', user_id) \
                 .eq('is_active', True) \

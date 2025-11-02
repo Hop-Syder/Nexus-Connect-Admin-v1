@@ -54,32 +54,39 @@ app = FastAPI(
 # ===========================================
 
 # 1. CORS (premier)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def _register_middlewares(fastapi_app: FastAPI) -> None:
+    """Attach the middleware stack in the documented order."""
 
-# 2. Trusted Host (sécurité domaine)
-if settings.ENVIRONMENT == "production":
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=[settings.ADMIN_DOMAIN, "localhost"]
-    )
+    cors_config = {
+        "allow_origins": settings.cors_origins_list,
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+    fastapi_app.add_middleware(CORSMiddleware, **cors_config)
 
-# 3. Rate Limiting
-app.add_middleware(RateLimitMiddleware)
+    # 2. Trusted Host (sécurité domaine)
+    if settings.ENVIRONMENT == "production":
+        trusted_hosts = [settings.ADMIN_DOMAIN, "localhost"]
+        fastapi_app.add_middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=trusted_hosts,
+        )
 
-# 4. JWT Authentication
-app.add_middleware(JWTAuthMiddleware)
+    # 3. Rate Limiting
+    fastapi_app.add_middleware(RateLimitMiddleware)
 
-# 5. RBAC Authorization
-app.add_middleware(RBACMiddleware)
+    # 4. JWT Authentication
+    fastapi_app.add_middleware(JWTAuthMiddleware)
 
-# 6. Audit Logging (dernier)
-app.add_middleware(AuditMiddleware)
+    # 5. RBAC Authorization
+    fastapi_app.add_middleware(RBACMiddleware)
+
+    # 6. Audit Logging (dernier)
+    fastapi_app.add_middleware(AuditMiddleware)
+
+
+_register_middlewares(app)
 
 # ===========================================
 # ROUTERS (avec préfixe /api/admin/v1)

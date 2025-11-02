@@ -372,7 +372,7 @@ async def get_user(
             segments = segments_resp.data or []
 
         audit_logs = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -451,7 +451,7 @@ async def update_user(
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "user.blocked" if update_data.is_blocked else "user.updated",
                 "severity": "HIGH" if update_data.is_blocked else "LOW",
@@ -499,7 +499,7 @@ async def delete_user(
                 }
             ).eq("user_id", user_id).execute()
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "user.deleted",
                 "severity": "CRIT",
@@ -612,7 +612,7 @@ async def bulk_action(
                 logger.warning("Bulk action failed for %s: %s", user_id, inner)
                 results.append({"user_id": user_id, "success": False, "error": str(inner)})
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": f"user.bulk_{payload.action}",
                 "severity": "MED",
@@ -669,7 +669,7 @@ async def export_users_csv(
             writer.writeheader()
             writer.writerows(rows)
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "data.exported",
                 "severity": "HIGH",
@@ -867,7 +867,7 @@ async def start_impersonation(
         )
         session = session_insert.data[0] if session_insert.data else None
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "user.impersonation_started",
                 "severity": "HIGH",
@@ -917,7 +917,7 @@ async def revoke_impersonation(
 
         query.execute()
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "user.impersonation_revoked",
                 "severity": "MED",

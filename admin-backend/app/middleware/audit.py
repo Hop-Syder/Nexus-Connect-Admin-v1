@@ -150,7 +150,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             log_hash = hashlib.sha256(log_data.encode()).hexdigest()
             
             # Insérer dans la table audit_logs
-            supabase.table('admin.audit_logs').insert({
+            supabase.table('audit_logs').insert({
                 **kwargs,
                 'log_hash': log_hash
             }).execute()
@@ -171,7 +171,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             supabase = get_supabase_admin()
             
             # Notifier tous les admins de niveau "admin"
-            admins = supabase.table('admin.admin_profiles') \
+            admins = supabase.table('admin_profiles') \
                 .select('user_id') \
                 .eq('role', 'admin') \
                 .eq('is_active', True) \

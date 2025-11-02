@@ -68,7 +68,7 @@ async def login(credentials: LoginRequest):
         refresh_token = auth_response.session.refresh_token
         
         # Vérifier que l'utilisateur est admin
-        admin_check = supabase.table('admin.admin_profiles') \
+        admin_check = supabase.table('admin_profiles') \
             .select('*') \
             .eq('user_id', user.id) \
             .eq('is_active', True) \
@@ -95,7 +95,7 @@ async def login(credentials: LoginRequest):
                 'mfa_verified_at': None
             })
         
-        supabase.table('admin.admin_profiles') \
+        supabase.table('admin_profiles') \
             .update(admin_update_payload) \
             .eq('user_id', user.id) \
             .execute()
@@ -104,7 +104,7 @@ async def login(credentials: LoginRequest):
         admin_profile.update(admin_update_payload)
         
         # Log audit
-        supabase.table('admin.audit_logs').insert({
+        supabase.table('audit_logs').insert({
             'event_type': 'admin.login',
             'severity': 'LOW',
             'user_id': user.id,
@@ -143,7 +143,7 @@ async def verify_2fa(request: Verify2FARequest):
         supabase = get_supabase_admin()
         
         # Récupérer le profil admin
-        admin_profile = supabase.table('admin.admin_profiles') \
+        admin_profile = supabase.table('admin_profiles') \
             .select('*') \
             .eq('user_id', request.user_id) \
             .single() \
@@ -173,7 +173,7 @@ async def verify_2fa(request: Verify2FARequest):
             )
         
         # Marquer comme vérifié
-        supabase.table('admin.admin_profiles') \
+        supabase.table('admin_profiles') \
             .update({
                 'mfa_verified': True,
                 'mfa_verified_at': datetime.utcnow().isoformat()
@@ -232,7 +232,7 @@ async def logout(current_user: dict = Depends(get_current_user)):
         supabase.auth.sign_out()
         
         # Log audit
-        supabase.table('admin.audit_logs').insert({
+        supabase.table('audit_logs').insert({
             'event_type': 'admin.logout',
             'severity': 'LOW',
             'user_id': current_user['id'],
@@ -261,7 +261,7 @@ async def setup_2fa(current_user: dict = Depends(get_current_user)):
         secret = pyotp.random_base32()
         
         # Sauvegarder le secret (temporairement non vérifié)
-        supabase.table('admin.admin_profiles') \
+        supabase.table('admin_profiles') \
             .update({
                 'mfa_secret': secret,
                 'mfa_verified': False
@@ -296,7 +296,7 @@ async def get_current_admin(current_user: dict = Depends(get_current_user)):
         supabase = get_supabase_admin()
         
         # Récupérer le profil complet
-        admin_profile = supabase.table('admin.admin_profiles') \
+        admin_profile = supabase.table('admin_profiles') \
             .select('*') \
             .eq('user_id', current_user['id']) \
             .single() \

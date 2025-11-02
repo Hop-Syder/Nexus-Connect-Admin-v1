@@ -241,14 +241,14 @@ async def get_moderation_stats(
         today_iso = datetime.utcnow().date().isoformat()
         # counting today's approvals/rejections from audit logs
         approvals_today = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("id", count="exact")
             .eq("event_type", "entrepreneur.approved")
             .gte("created_at", today_iso)
             .execute()
         ).count or 0
         rejections_today = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("id", count="exact")
             .eq("event_type", "entrepreneur.rejected")
             .gte("created_at", today_iso)
@@ -437,7 +437,7 @@ async def assign_moderation_item(
             }
         ).execute()
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "moderation.assigned",
                 "severity": "LOW",
@@ -542,7 +542,7 @@ async def get_entrepreneur_for_moderation(
         )
 
         audits = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("*")
             .eq("user_id", entrepreneur.data["user_id"])
             .order("created_at", desc=True)
@@ -633,7 +633,7 @@ async def moderate_entrepreneur(
         )
         queue_item = queue_resp.data[0] if queue_resp.data else None
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": f"entrepreneur.{payload.decision}",
                 "severity": "MED" if payload.decision != "rejected" else "HIGH",

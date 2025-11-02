@@ -153,7 +153,7 @@ def _insert_audit_log(supabase, *, admin_id: str, event_type: str, severity: str
         "metadata": metadata or {},
     }
     payload["log_hash"] = _compute_audit_hash(payload)
-    supabase.table("admin.audit_logs").insert(payload).execute()
+    supabase.table("audit_logs").insert(payload).execute()
 
 
 def _check_external_endpoint(url: str, timeout: int = 5) -> str:
