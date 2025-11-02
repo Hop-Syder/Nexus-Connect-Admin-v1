@@ -1,319 +1,88 @@
-# 🎨 Nexus Connect - Admin Frontend v2.1
+# Nexus Connect Admin – Frontend
 
-**Interface Next.js pour le Tableau de Bord d'Administration**
+Interface d'administration construite avec Next.js 15 (App Router) pour piloter l'API FastAPI du projet.
 
----
+## Stack
 
-## 🚀 Quick Start
+- **Next.js 15** avec App Router (`src/app`) et rendu hybride.
+- **TypeScript** et ESLint Next.
+- **UI** : Tailwind CSS + Radix UI, composants utilitaires dans `src/components`.
+- **State & data fetching** : Zustand (`src/store`), React Query (`@tanstack/react-query`), Axios (`src/lib/api-client.ts`).
+- **Charts** : Recharts pour les dashboards analytics.
+- **Formulaires** : react-hook-form + Zod.
+- **Notifications** : sonner.
 
-### 1. Installation
+## Fonctionnalités principales
+
+- **Authentification & 2FA** :
+  - Page de connexion (`src/features/auth/LoginPage.tsx`) avec validation Zod.
+  - Gestion des tokens, 2FA TOTP et rafraîchissement via interceptors Axios.
+  - Persistance locale (Zustand + `localStorage`), initialisation automatique (`src/components/auth/auth-initializer`).
+- **Gestion des utilisateurs** :
+  - Liste infinie avec filtres premium/blocage, recherche textuelle, résumé statistique.
+  - Sélection multiple, actions groupées (blocage/déblocage, tags, segments), export CSV.
+  - Vue détaillée avec historique d'abonnement, tags, champs personnalisés, activité et sessions d'impersonation.
+  - Création/gestion des segments utilisateurs.
+- **Abonnements** : gestion des plans, attribution manuelle du premium, suivi des expirations, création de coupons, statistiques d'abonnement.
+- **Campagnes marketing** : CRUD campagnes, planification/envoi, suivi des stats et templates réutilisables.
+- **Support & messages** : boîte de réception, réponses, modèles de message, archivage.
+- **Modération** : file d'attente, macros, assignation d'éléments, décisions sur les profils entrepreneurs.
+- **Analytics** : tableaux de bord KPI, croissance utilisateur, distribution géographique, revenus, performance contenu et exports.
+- **Audit** : consultation, filtrage, export des logs et visualisation des statistiques d'événements.
+- **Paramètres** : bascule maintenance, déclenchement de backups, gestion des notifications système, vérification santé.
+
+Chaque section est isolée dans `src/features/<domaine>` et consomme les endpoints documentés dans `src/lib/api-client.ts`.
+
+## Installation & exécution locale
 
 ```bash
-cd admin-frontend
+# Dans admin-frontend/
 npm install
+
+# Variables d'environnement
+cp env.md .env.local  # ou créez directement .env.local
+
+# Lancer le serveur Next.js
+env NEXT_PUBLIC_ADMIN_API_URL="http://localhost:8002/api/admin/v1" npm run dev
 ```
 
-### 2. Configuration
+L'application sera disponible sur `http://localhost:3000`.
 
-Fichier `.env` déjà configuré avec:
-- `NEXT_PUBLIC_ADMIN_API_URL`: URL du backend admin (localhost:8002)
-- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Credentials Supabase
+## Scripts NPM
 
-### 3. Lancer l'application
+- `npm run dev` – développement
+- `npm run build` – build production
+- `npm run start` – serveur Next.js production
+- `npm run lint` – linting Next/TypeScript
 
-```bash
-# Développement (port 3000)
-npm run dev
+## Variables d'environnement
 
-# Production build
-npm run build
-```
+- `NEXT_PUBLIC_ADMIN_API_URL` (obligatoire) : URL de base de l'API. Doit inclure `/api/admin/v1`.
 
-Application disponible sur: **http://localhost:3000**
+## Authentification côté client
 
----
+- Les tokens d'accès/rafraîchissement sont stockés dans `localStorage` (`admin_access_token`, `admin_refresh_token`).
+- L'intercepteur Axios tente automatiquement un refresh sur 401 puis redirige vers `/login` en cas d'échec.
+- `AuthInitializer` récupère `/auth/me` au montage pour hydrater le store et forcer la vérification 2FA.
 
-## 📁 Structure du Projet
+## Structure du code
 
 ```
 src/
-├── app/                    # Routes et pages
-├── components/
-│   ├── layout/            # Sidebar, Navbar
-│   └── ui/                # Composants UI réutilisables
-├── features/              # Modules par domaine
-│   ├── dashboard/         # Dashboard principal
-│   ├── auth/              # Login, 2FA
-│   ├── users/             # Gestion utilisateurs
-│   ├── subscriptions/     # Abonnements
-│   ├── moderation/        # Modération entrepreneurs
-│   ├── messages/          # Support messages
-│   ├── campaigns/         # Campagnes e-mail
-│   ├── analytics/         # Analytics & rapports
-│   ├── audit/             # Logs d'audit
-│   └── settings/          # Configuration
-├── lib/                   # Utils & API client
-│   ├── api-client.ts      # Client API avec intercepteurs
-│   ├── supabase.ts        # Client Supabase
-│   └── utils.ts           # Fonctions utilitaires
-├── store/                 # Zustand stores
-│   ├── auth-store.ts      # State authentification
-│   └── ui-store.ts        # State UI (sidebar, dark mode)
-├── types/                 # TypeScript types
-└── styles/                # CSS global
+├── app/            # Routes App Router (auth, dashboard, layout, providers)
+├── components/     # UI réutilisable (tableaux, formulaires, navigation)
+├── features/       # Pages fonctionnelles regroupées par domaine métier
+├── lib/            # API client, utilitaires (formatage, graphiques)
+├── store/          # Stores Zustand (auth, préférences…)
+├── styles/         # Styles globaux Tailwind
+└── types/          # Types TypeScript partagés (utilisateurs, abonnements, analytics…)
 ```
 
----
+## Qualité & bonnes pratiques
 
-## 🎨 Stack Technique
+- Respecter la séparation `features/` pour éviter l'entrelacement des domaines.
+- Utiliser React Query pour tout accès réseau afin de bénéficier du cache et de l'invalidation automatique.
+- Les actions critiques (impersonation, suppression, bascule maintenance) affichent des toasts : gardez cette cohérence UX.
+- Ajoutez des tests (Playwright ou Jest) si vous introduisez de nouvelles interactions critiques.
 
-### Core
-- **Next.js 14** - Framework full-stack
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **shadcn/ui** - Composants UI
-
-### État & Data
-- **Zustand** - State management
-- **TanStack Query** - Data fetching & caching
-- **React Hook Form** - Forms
-- **Zod** - Schema validation
-
-### Routing & Navigation
-- **Next.js App Router** - Routing côté serveur/clients
-- **next/navigation** - API de navigation programmatique
-
-### Charts & Visualisation
-- **Recharts** - Graphiques
-- **Lucide React** - Icons
-
-### API & Backend
-- **Axios** - HTTP client
-- **@supabase/supabase-js** - Supabase client
-
----
-
-## 🔐 Authentification
-
-### Flow d'authentification
-
-1. **Login** (`/login`)
-   - Email + Password
-   - API: `POST /api/admin/v1/auth/login`
-
-2. **2FA** (si activé)
-   - Code TOTP (6 chiffres)
-   - API: `POST /api/admin/v1/auth/verify-2fa`
-
-3. **Session**
-   - Access Token (JWT) stocké dans `localStorage`
-   - Refresh Token pour renouvellement auto
-   - Intercepteurs Axios pour retry automatique
-
-### Stores
-
-```typescript
-// Auth Store
-const { user, isAuthenticated, setAuth, clearAuth } = useAuthStore();
-
-// UI Store
-const { sidebarOpen, darkMode, toggleSidebar, toggleDarkMode } = useUIStore();
-```
-
----
-
-## 📊 Modules Principaux
-
-### 1. Dashboard
-- KPIs en temps réel (total users, premium, MRR, alerts)
-- Graphiques (croissance, geo distribution)
-- Activité récente
-
-### 2. Utilisateurs
-- Liste avec pagination cursor
-- Filtres avancés (role, premium, blocked, country)
-- Détails utilisateur (profil, subscriptions, historique)
-- Actions bulk (block, unblock, tag)
-- Export CSV
-- Segments sauvegardés
-
-### 3. Abonnements
-- Plans (create, edit, désactiver)
-- Grant/revoke premium
-- Historique par utilisateur
-- Coupons (create, list)
-- Expirations (J-7, J-3, J0)
-- Stats (MRR, conversions)
-
-### 4. Modération
-- File de modération (pending, in_review, approved, rejected)
-- Détails entrepreneur avec checks auto
-- Décisions (approve, reject, request changes)
-- Macros prédéfinies
-- Assignment modérateurs
-- SLA tracking
-
-### 5. Messages (Support)
-- Liste messages (new, assigned, replied, archived)
-- Détails + répondre
-- Templates de réponse
-- Priorités & catégories
-- SLA breaches
-
-### 6. Campagnes E-mail
-- Créer campagne (sujet, contenu, ciblage)
-- Envoi test
-- Scheduler
-- Templates réutilisables
-- Stats (sent, opened, clicked, unsubscribed)
-
-### 7. Analytics
-- Dashboard KPIs
-- User growth (7d/30d/90d)
-- Geo distribution
-- Revenue stats (MRR, period revenue)
-- Content stats
-- Exports (CSV, Excel)
-
-### 8. Audit
-- Logs d'audit (filtres par event_type, severity, dates)
-- Export signé (CSV avec hash SHA256)
-- Stats (critical events, top events)
-- Event types (16 types)
-
-### 9. Settings
-- System settings (par catégorie)
-- Health check (DB, Redis, Email, Payment)
-- Notifications center
-- Backup trigger
-
----
-
-## 🎨 Design System
-
-### Couleurs
-
-```css
---primary: #3B82F6       /* Blue */
---secondary: #10B981     /* Green */
---destructive: #EF4444   /* Red */
---warning: #F59E0B       /* Orange */
---muted: #6B7280         /* Gray */
-```
-
-### Components UI
-
-```tsx
-import { Button, Card, Input, Badge } from '@/components/ui';
-```
-
-### Layout
-
-```tsx
-// app/(dashboard)/layout.tsx
-<AuthGuard>
-  <Sidebar />
-  <Navbar />
-  <main className="p-6">{children}</main>
-</AuthGuard>
-```
-
----
-
-## 🔧 API Client
-
-### Usage
-
-```typescript
-import apiClient from '@/lib/api-client';
-
-// Users
-const users = await apiClient.getUsers({ limit: 50 });
-const user = await apiClient.getUser(userId);
-
-// Subscriptions
-const plans = await apiClient.getPlans();
-await apiClient.grantPremium({ user_id, plan_code });
-
-// Moderation
-const queue = await apiClient.getModerationQueue({ status: 'pending' });
-await apiClient.moderateEntrepreneur(id, { decision: 'approved' });
-
-// Analytics
-const kpis = await apiClient.getDashboardKPIs();
-const growth = await apiClient.getUserGrowth('30d');
-```
-
-### Features
-
-- **Auto retry** sur 401 avec refresh token
-- **Error handling** automatique avec toasts
-- **Type safety** TypeScript complet
-- **Request interceptors** pour auth
-- **Response interceptors** pour erreurs
-
----
-
-## 🧪 Tests
-
-Les tests automatisés ne sont pas encore configurés.  
-Utilisez `npm run lint` pour vérifier la qualité du code avant une PR.
-
----
-
-## 🚀 Déploiement
-
-### Build
-
-```bash
-npm run build
-```
-
-### Production
-
-```bash
-# Lancer le serveur Next.js en mode production
-npm run start
-```
-
-> Pour un hébergement managé, Vercel est recommandé (support natif de Next.js).
-
-### Déploiement Vercel
-
-1. Importer le dépôt dans Vercel et définir `Root Directory` sur `admin-frontend`.
-2. Laisser les commandes détectées : `npm install` (Install) et `npm run build` (Build). Le dossier de sortie `.next` est géré automatiquement.
-3. Déclarer les variables d’environnement dans **Settings → Environment Variables** :
-   ```
-   NEXT_PUBLIC_ADMIN_API_URL=https://<votre-backend>/api/admin/v1
-   NEXT_PUBLIC_SUPABASE_URL=...
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-   ```
-   Propager les mêmes valeurs pour `Production`, `Preview` et `Development`.
-4. Lancer un déploiement. Après validation, ajouter votre domaine personnalisé si besoin.
-5. Mettre à jour `CORS_ORIGINS` côté backend pour autoriser le domaine Vercel (et le domaine custom).
-
----
-
-## 📝 TODO
-
-- [ ] Compléter les pages Users, Subscriptions, etc.
-- [ ] Ajouter Recharts pour les graphiques
-- [ ] Implémenter Tables avancées (TanStack Table)
-- [ ] Ajouter tests E2E (Playwright)
-- [ ] i18n (FR/EN)
-- [ ] Mode offline avec service worker
-
----
-
-## 🔗 Liens
-
-- **Backend API**: http://localhost:8002/api/admin/v1
-- **Docs API**: http://localhost:8002/api/admin/v1/docs
-- **Supabase**: https://app.supabase.com
-
----
-
-**Version:** 2.1.0  
-**Date:** Janvier 2025  
-**Auteur:** Équipe Technique Nexus Connect
+Bon développement côté interface !

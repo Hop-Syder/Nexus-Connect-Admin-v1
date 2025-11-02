@@ -1,204 +1,82 @@
-# 🚀 Déploiement sur Railway – Nexus Connect Admin
+# Déploiement sur Railway
 
-Ce guide explique comment déployer la plateforme **Nexus Connect Admin** (API FastAPI + dashboard React) sur [Railway](https://railway.app/).
-Il couvre la préparation du projet, la configuration des services Railway et la mise en production continue.
+Ce guide résume la configuration de Nexus Connect Admin (API FastAPI + interface Next.js) sur [Railway](https://railway.app/). Il s'appuie exclusivement sur les fonctionnalités présentes dans le dépôt : Procfile backend, scripts NPM frontend et variables déclarées dans `app/config.py` et `src/lib/api-client.ts`.
 
----
+## 1. Préparation du projet Railway
 
-## 1. Prérequis
+1. Créez un nouveau projet Railway.
+2. Ajoutez deux services :
+   - **Service API** connecté au dossier `admin-backend/` (Python).
+   - **Service Frontend** connecté au dossier `admin-frontend/` (Node.js/Next.js).
+3. Activez le déploiement automatique sur les branches souhaitées (`main` ou `production`).
 
-- Compte Railway avec un plan adapté (au minimum **Starter** pour gérer deux services).
-- Accès au dépôt Git de l’application.
-- CLI Railway installée (optionnel mais recommandé) :
-  ```bash
-  npm install -g @railway/cli
-  railway login
-  ```
-- Variables d’environnement nécessaires (Supabase, Redis, SendGrid, Moneroo…).
-- Supabase et Redis déjà provisionnés (Railway peut héberger Redis, Supabase reste externe).
+## 2. Service API FastAPI
 
----
+### Build & Start
+- **Builder** : Python 3.12
+- **Build command** : `pip install -r admin-backend/requirements.txt`
+- **Start command** : `cd admin-backend && gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
+- **Health check** : `/health`
 
-## 2. Structure recommandée sur Railway
-
-| Service Railway | Dossier source | Type de service | Commande de démarrage |
-| ---------------- | -------------- | ---------------- | --------------------- |
-| `admin-backend`  | `admin-backend/` | **Python** | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
-| `admin-frontend` | `admin-frontend/` | **Static Site** (build Node) | `npm run build` (build) / dossier `build` |
-| (Optionnel) `redis` | – | Add-on Redis | – |
-
-> Railway crée un service par répertoire. Chaque service dispose de ses variables d’environnement et d’un déploiement indépendant.
-
----
-
-## 3. Initialiser le projet Railway
-
-1. **Cloner le dépôt** (si ce n’est déjà fait) :
-   ```bash
-   git clone <URL_DU_DEPOT>
-   cd Nexus-Connect-Admin
-   ```
-2. **Initialiser Railway** depuis la racine du projet :
-   ```bash
-   railway init
-   ```
-   - Choisir ou créer un projet Railway.
-   - Relier le répertoire `admin-backend` au service backend.
-   - Relier le répertoire `admin-frontend` au service frontend.
-
-3. (Optionnel) **Configurer le fichier `railway.toml`** pour déclarer explicitement les services :
-   ```toml
-   [project]
-   name = "nexus-connect-admin"
-
-   [[services]]
-   name = "admin-backend"
-   path = "admin-backend"
-   start = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-
-   [[services]]
-   name = "admin-frontend"
-   path = "admin-frontend"
-   build = "npm install && npm run build"
-   staticPublishPath = "build"
-   ```
-   > Ce fichier est facultatif mais permet d’automatiser la configuration depuis la CLI.
-
----
-
-## 4. Configurer les variables d’environnement
-
-### 4.1 Backend (`admin-backend`)
-
-Dans l’interface Railway : **Service** → **Variables** → ajouter les clés suivantes.
+### Variables d'environnement requises
+Les clés correspondent aux attributs de `Settings` (`admin-backend/app/config.py`). Complétez-les avec vos valeurs Supabase/Redis/SendGrid/Moneroo.
 
 | Variable | Description |
-| -------- | ----------- |
-| `SUPABASE_URL` | URL du projet Supabase |
+| --- | --- |
+| `SUPABASE_URL` | URL de votre instance Supabase |
 | `SUPABASE_ANON_KEY` | Clé publique Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clé service Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clé service Supabase (accès complet) |
 | `SUPABASE_JWT_SECRET` | Secret JWT Supabase |
-| `SECRET_KEY` | Secret interne FastAPI |
-| `CORS_ORIGINS` | Domaines autorisés (`https://admin.mondomaine.com,https://admin.vercel.app`) |
-| `REDIS_URL` | URL Redis (Railway ou externe) |
-| `SENDGRID_API_KEY` | Clé SendGrid |
+| `SECRET_KEY` | Clé secrète FastAPI |
+| `CORS_ORIGINS` | Origines autorisées (ex. `https://admin.example.com`) |
+| `ENVIRONMENT` | `production` sur Railway |
+| `ADMIN_DOMAIN` | Domaine de l'interface admin |
+| `REDIS_URL` | URL Redis managé (Railway propose un plugin) |
+| `RATE_LIMIT_PER_MINUTE` | Limite par administrateur (ex. `120`) |
+| `RATE_LIMIT_BURST` | Burst autorisé |
+| `SENDGRID_API_KEY` | Clé SendGrid pour l'envoi d'e-mails |
 | `EMAIL_FROM` / `EMAIL_FROM_NAME` | Expéditeur par défaut |
-| `MONEROO_API_KEY` / `MONEROO_SECRET_KEY` | Clés Moneroo |
-| `MONEROO_BASE_URL` | Endpoint API Moneroo |
-| `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` | Si tâches asynchrones |
-| `LOG_LEVEL` | Niveau de logs (`INFO`, `DEBUG`, …) |
+| `IMPERSONATION_TOKEN_EXPIRE_MINUTES` | Durée impersonation |
+| `MONEROO_*` | Clés Moneroo si paiement actif |
+| `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` | URL Redis pour tâches différées |
+| `LOG_LEVEL` | Niveau de logs |
+| `ENABLE_OPENTELEMETRY` | `false` (ou `true` si instrumentation) |
 
-> Conseil : utiliser une **Variable Group** sur Railway pour partager ces valeurs entre les environnements (staging/production).
+> Pensez à fournir les mêmes variables au processus de build si certaines sont lues à l'import (ex. SendGrid).
 
-### 4.2 Frontend (`admin-frontend`)
+### Services complémentaires
+- **Redis** : créez un plugin Redis Railway et référencez l'URL dans `REDIS_URL` + `CELERY_*`.
+- **Supabase** : configurez les tables `admin.*` attendues par les routes (utilisateurs, audit, notifications…).
+- **Stockage** : les exports CSV/Excel sont générés en mémoire, aucun service additionnel n'est requis.
 
-Ajouter au minimum :
+## 3. Service Frontend Next.js
 
-```
-NEXT_PUBLIC_ADMIN_API_URL=https://<service-backend>.up.railway.app/api/admin/v1
-NEXT_PUBLIC_APP_ENV=production
-```
+### Build & Start
+- **Builder** : Node.js 22
+- **Build command** : `cd admin-frontend && npm install && npm run build`
+- **Start command** : `cd admin-frontend && npm run start`
+- **Port** : 3000 (Railway le fournit via `$PORT` automatiquement)
 
-Ajouter d’autres clés publiques (Supabase, analytics) selon les besoins.
+### Variables d'environnement
+| Variable | Description |
+| --- | --- |
+| `NEXT_PUBLIC_ADMIN_API_URL` | URL publique du service API déployé (ex. `https://<api-service>.up.railway.app/api/admin/v1`) |
 
----
+### Notes spécifiques
+- L'application utilise `localStorage` pour stocker les tokens (`admin_access_token`, `admin_refresh_token`). Assurez-vous que le domaine est servi en HTTPS pour éviter les problèmes de sécurité.
+- Les notifications toast (`sonner`) et la 2FA nécessitent que l'API expose correctement `/auth/verify-2fa`.
 
-## 5. Déploiement du backend FastAPI
+## 4. Post-déploiement
 
-1. **Détection automatique** : Railway détecte `requirements.txt` dans `admin-backend/` et installe les dépendances Python 3.11.
-2. **Commande de démarrage** : vérifier dans l’onglet **Settings** → **Start Command** que la commande est :
-   ```
-   uvicorn app.main:app --host 0.0.0.0 --port $PORT
-   ```
-   (ou `gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT` pour un déploiement plus robuste).
-3. **Variables d’environnement** : s’assurer qu’elles sont renseignées avant de déployer.
-4. **Déclencher un déploiement** :
-   - Via l’interface : bouton **Deploy**.
-   - Via la CLI :
-     ```bash
-     railway up
-     ```
-5. **Vérifier la santé** :
-   - Logs Railway (`railway logs` ou onglet **Logs**).
-   - Endpoint `https://<backend>.up.railway.app/api/admin/v1/settings/health/check`.
+1. **Tester l'accès** : rendez-vous sur le domaine Railway du frontend, connectez-vous avec un administrateur actif.
+2. **Vérifier les middlewares** : consultez les logs pour confirmer la création d'événements d'audit (`AuditMiddleware`) et l'absence d'erreurs Redis.
+3. **Configurer les alertes** : utilisez les endpoints `/settings/notifications` et `/settings/health/check` pour surveiller l'état du système.
+4. **Sécurité** : mettez à jour `CORS_ORIGINS` et `ADMIN_DOMAIN` pour refléter vos domaines custom (Railway + production finale).
 
----
+## 5. Déploiements ultérieurs
 
-## 6. Déploiement du frontend React
+- Les pushes sur la branche suivie déclenchent automatiquement un redeploy.
+- Pour des migrations/corrections sensibles, déployez d'abord sur un environnement Railway secondaire, validez, puis promouvez.
+- Ajoutez des tests automatisés (Pytest/Playwright) dans vos workflows CI/CD avant de déclencher le redeploy en production.
 
-1. **Commande de build** : définir `npm install` comme commande de build et `npm run build` comme commande de production (Railway Static Site).
-2. **Dossier de publication** : `admin-frontend/build`.
-3. **Variables d’environnement** : définir `NEXT_PUBLIC_*` avant le build.
-4. **Déploiement** : `railway up` depuis `admin-frontend/` ou déclenchement via l’interface.
-5. **Configuration DNS** : pointer votre domaine personnalisé vers le domaine Railway fourni (CNAME). Configurer HTTPS depuis l’onglet **Domains**.
-
----
-
-## 7. Base de données & services additionnels
-
-- **Supabase** : exécuter les migrations SQL (tables `admin.*`) avant la mise en production. Gérer les RLS policies et les rôles.
-- **Redis** : ajouter l’add-on Redis Railway et récupérer l’URL pour `REDIS_URL`.
-- **Tâches planifiées** : utiliser `Railway Cron` ou Supabase `pg_cron` pour les jobs récurrents.
-
----
-
-## 8. Intégration continue (facultatif mais recommandé)
-
-- Activer les **Deployments automatiques** via GitHub : connecter le dépôt au projet Railway et choisir la branche (`main` ou `production`).
-- Ajouter un workflow GitHub Actions qui exécute les tests (`pytest`, `npm run test`) avant chaque push vers la branche de déploiement.
-
-Exemple de script CI minimal :
-```yaml
-name: CI
-on: [push]
-
-jobs:
-  test-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - run: pip install -r admin-backend/requirements.txt
-      - run: pytest
-        working-directory: admin-backend
-
-  test-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm install
-        working-directory: admin-frontend
-      - run: npm run test -- --watch=false
-        working-directory: admin-frontend
-```
-
----
-
-## 9. Checklist post-déploiement
-
-- [ ] Variables d’environnement complètes et à jour.
-- [ ] Endpoint de santé (`/settings/health/check`) renvoie `200`.
-- [ ] Accès administrateur créé (table `admin.admin_profiles`).
-- [ ] Jobs planifiés vérifiés (pg_cron ou Railway Cron).
-- [ ] Monitoring configuré : logs Railway, alertes email/Slack.
-- [ ] Domaine personnalisé et HTTPS actifs pour le frontend.
-- [ ] Tests manuels effectués sur les flux critiques (auth, modération, analytics).
-
----
-
-## 10. Support & ressources
-
-- Documentation Railway : https://docs.railway.app/
-- FastAPI Deployment : https://fastapi.tiangolo.com/deployment/
-- React Build & Deploy : https://create-react-app.dev/docs/deployment/
-- Contact équipe Nexus : `tech@hop-syder.com`
-
----
-
-**Auteur :** Équipe technique Hop-Syder (@hopsyder)  
-**Dernière mise à jour :** Février 2025
+Bonne mise en production !
