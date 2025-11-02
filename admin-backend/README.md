@@ -1,289 +1,102 @@
-# 🎯 Nexus Connect - Admin Backend API v2.1
+# Nexus Connect Admin – Backend API
 
-**Backend FastAPI pour le Tableau de Bord d'Administration Hop-Syder/News**
+API FastAPI pour le tableau de bord Nexus Connect. Elle fournit des endpoints sécurisés dédiés aux équipes support, modération, marketing et opérations.
 
----
+## Architecture
 
-## 🚀 Quick Start
+- **Framework** : FastAPI 0.110 avec uvicorn/gunicorn.
+- **Configuration** : `app/config.py` expose une classe `Settings` (Pydantic) chargée via `.env`.
+- **Middlewares** (`app/main.py`) :
+  1. `CORSMiddleware` – configuration dynamique via `CORS_ORIGINS`.
+  2. `TrustedHostMiddleware` – activé en production.
+  3. `RateLimitMiddleware` – quotas par minute avec Redis (`app/middleware/rate_limit.py`).
+  4. `JWTAuthMiddleware` – vérification des JWT Supabase (`app/middleware/jwt_auth.py`).
+  5. `RBACMiddleware` – enrichissement du profil admin et contrôle des permissions (`app/middleware/rbac.py`).
+  6. `AuditMiddleware` – journalisation immuable des actions (`app/middleware/audit.py`).
+- **Services** : clients Supabase (`services/supabase_client.py`), SendGrid (`services/email_service.py`), paiements Moneroo (`services/payment_service.py`), exports (`services/export_service.py`).
+- **Organisation des routes** : modules FastAPI sous `app/api/admin/v1/` (auth, users, subscriptions, entrepreneurs, messages, campaigns, analytics, audit, settings).
 
-### 1. Installation
+## Fonctionnalités clés par module
+
+| Module | Principales routes |
+| --- | --- |
+| `auth` | `/auth/login`, `/auth/verify-2fa`, `/auth/refresh`, `/auth/logout`, `/auth/setup-2fa`, `/auth/me` |
+| `users` | Listing paginé & filtré, fiches détaillées (`/{user_id}`), mise à jour, suppression douce/définitive, actions groupées (`/bulk-action`), export CSV (`/export/csv`), segments CRUD, impersonation sécurisée |
+| `subscriptions` | Gestion des plans (`/plans`), attribution/révocation premium, historique (`/history/{user_id}`), monitoring des expirations, coupons (`/coupons`), statistiques (`/stats`) |
+| `entrepreneurs` | File de modération (`/moderation-queue`), statistiques, macros, assignations, changement de statut, consultation/modération de profils |
+| `messages` | Boîte de support avec filtres, stats (`/stats/summary`), édition/archivage, réponses, templates |
+| `campaigns` | CRUD campagnes, planification, annulation, envoi immédiat, statistiques détaillées, templates marketing |
+| `analytics` | KPIs tableau de bord, croissance utilisateurs, distribution géographique, revenus, performance contenu, export de rapports |
+| `audit` | Recherche/export de logs, consultation détaillée, statistiques, liste des types d'événements |
+| `settings` | Lecture/écriture des paramètres, mises à jour en masse, bascule maintenance, vérification de santé, déclenchement de backups, gestion des notifications |
+
+Toutes les routes (hors santé/auth) exigent un JWT Supabase valide et un profil admin actif (`admin.admin_profiles`).
+
+## Prérequis
+
+- Python 3.11+
+- Supabase (Auth + tables Postgres `admin.*`)
+- Redis (rate limiting, tâches Celery)
+- SendGrid (emails transactionnels, optionnel)
+- Moneroo (paiements, optionnel)
+
+## Installation & exécution locale
 
 ```bash
-cd /app/admin-backend
+# Dans admin-backend/
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+
+# Copier .env
+cp env.md .env  # adapter selon vos secrets
+
+# Lancer l'API
+env \ \
+  SUPABASE_URL=... \ \
+  SUPABASE_SERVICE_ROLE_KEY=... \ \
+  uvicorn app.main:app --reload --port 8002
 ```
 
-### 2. Configuration
+L'API expose :
+- `GET /` informations générales
+- `GET /api/admin/v1` index des endpoints
+- `GET /health` pour les probes
 
-Copier `.env.example` vers `.env` et remplir les variables:
-
+Pour un environnement proche production :
 ```bash
-cp .env.example .env
-# Éditer .env avec vos credentials
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8002
 ```
 
-**Variables critiques:**
-- `SUPABASE_*`: Credentials depuis Supabase Dashboard
-- `SECRET_KEY`: Générer avec `openssl rand -hex 32`
-- `SENDGRID_API_KEY`: Clé SendGrid pour les e-mails
-- `MONEROO_*`: Clés Moneroo.io pour les paiements
+## Variables d'environnement
 
-### 3. Base de données
+Reportez-vous à `Settings` (toutes obligatoires sauf mention contraire) :
 
-Exécuter le schéma SQL dans Supabase:
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`
+- `APP_NAME`, `APP_VERSION`, `ENVIRONMENT`, `ADMIN_DOMAIN`
+- `CORS_ORIGINS`
+- `SECRET_KEY`
+- `REDIS_URL`
+- `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_BURST`
+- `SENDGRID_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME`
+- `IMPERSONATION_TOKEN_EXPIRE_MINUTES`
+- `MONEROO_API_KEY`, `MONEROO_SECRET_KEY`, `MONEROO_WEBHOOK_SECRET`, `MONEROO_BASE_URL`
+- `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
+- `LOG_LEVEL`, `ENABLE_OPENTELEMETRY`
 
-```bash
-# Aller dans Supabase Dashboard > SQL Editor
-# Copier-coller /app/admin_database_schema.sql
-# Exécuter
-```
+## Points d'attention
 
-### 4. Lancer le serveur
+- **Authentification** : le middleware décode les JWT Supabase, vérifie la 2FA et enrichit `request.state.admin_profile`. Utilisez `Depends(get_current_user)` ou `Depends(get_current_admin_user)` dans vos routes.
+- **Rate limiting** : désactivé si Redis indisponible (logs d'avertissement). Prévoir une instance fiable en production.
+- **Audit** : chaque action écrit dans `admin.audit_logs` avec hash SHA-256 et peut générer des notifications critiques (`admin.notifications`).
+- **Exports** : les CSV/Excel sont générés en mémoire et retournés en `StreamingResponse`. Surveillez la taille pour éviter les dépassements mémoire.
+- **Sécurité** : les permissions supplémentaires peuvent être appliquées via le décorateur `require_permission`.
 
-```bash
-# Développement (avec hot reload)
-python -m app.main
+## Tests & Qualité
 
-# Production (via supervisor)
-sudo supervisorctl restart admin-backend
-```
+Des suites automatisées ne sont pas fournies. Avant de déployer, il est recommandé de :
+- Ajouter des tests Pytest ciblant les endpoints critiques.
+- Valider les scripts Celery si vous activez les tâches différées.
+- Vérifier les journaux (`logging` niveau INFO) pour suivre la séquence middleware au démarrage/arrêt (`app.main`).
 
-Serveur disponible sur: **http://localhost:8002**
-
-Documentation interactive: **http://localhost:8002/api/admin/v1/docs**
-
----
-
-## 📚 API Endpoints
-
-### Authentication (`/api/admin/v1/auth`)
-- `POST /login` - Login admin
-- `POST /verify-2fa` - Vérifier code 2FA
-- `POST /refresh` - Rafraîchir token
-- `POST /logout` - Déconnexion
-- `POST /setup-2fa` - Configurer 2FA
-- `GET /me` - Profil admin courant
-
-### Users (`/api/admin/v1/users`)
-- `GET /` - Liste utilisateurs (filtres, pagination cursor)
-- `GET /{user_id}` - Détails utilisateur
-- `PUT /{user_id}` - Mettre à jour
-- `DELETE /{user_id}` - Supprimer (soft/hard)
-- `POST /bulk-action` - Actions groupées
-- `GET /export/csv` - Export CSV
-- `POST /segments` - Créer segment
-- `GET /segments` - Liste segments
-
-### Subscriptions (`/api/admin/v1/subscriptions`)
-- `GET /plans` - Liste plans
-- `POST /plans` - Créer plan
-- `POST /grant-premium` - Attribuer premium
-- `POST /revoke-premium` - Révoquer premium
-- `GET /history/{user_id}` - Historique abonnements
-- `GET /expiring-soon` - Abonnements expirant
-- `POST /coupons` - Créer coupon
-- `GET /coupons` - Liste coupons
-- `GET /stats` - Stats abonnements
-
-### Entrepreneurs (`/api/admin/v1/entrepreneurs`)
-- `GET /moderation-queue` - File de modération
-- `GET /entrepreneurs/{id}` - Détails pour modération
-- `POST /entrepreneurs/{id}/moderate` - Décision modération
-- `POST /entrepreneurs/{id}/assign` - Assigner modérateur
-- `GET /moderation-stats` - Stats modération
-- `GET /macros` - Macros de décision
-
-### Messages (`/api/admin/v1/messages`)
-- `GET /` - Liste messages
-- `GET /{message_id}` - Détails message
-- `PUT /{message_id}` - Mettre à jour
-- `POST /{message_id}/reply` - Répondre
-- `POST /{message_id}/archive` - Archiver
-- `GET /stats/summary` - Stats messages
-
-### Campaigns (`/api/admin/v1/campaigns`)
-- `GET /` - Liste campagnes
-- `POST /` - Créer campagne
-- `GET /{campaign_id}` - Détails campagne
-- `POST /{campaign_id}/send` - Envoyer (ou test)
-- `GET /templates` - Liste templates
-- `POST /templates` - Créer template
-
-### Analytics (`/api/admin/v1/analytics`)
-- `GET /dashboard` - KPIs dashboard
-- `GET /users/growth` - Croissance utilisateurs
-- `GET /users/geo` - Répartition géo
-- `GET /subscriptions/revenue` - Stats revenus
-- `GET /content/stats` - Stats contenu
-- `GET /export/csv` - Export analytics
-
-### Audit (`/api/admin/v1/audit`)
-- `GET /logs` - Liste logs d'audit
-- `GET /logs/{log_id}` - Détails log
-- `GET /export` - Export signé (CSV)
-- `GET /stats` - Stats audit
-- `GET /event-types` - Types d'événements
-
-### Settings (`/api/admin/v1/settings`)
-- `GET /` - Tous les paramètres
-- `GET /{setting_key}` - Paramètre spécifique
-- `PUT /{setting_key}` - Mettre à jour
-- `PUT /bulk-update` - Mise à jour groupée
-- `GET /health/check` - Vérification santé
-- `POST /backup/trigger` - Déclencher backup
-- `GET /notifications` - Notifications admin
-- `PUT /notifications/{id}/read` - Marquer comme lu
-
----
-
-## 🔐 Sécurité
-
-### Middleware Stack
-
-1. **CORS** - Domaines autorisés uniquement
-2. **Trusted Host** - Vérification domaine (prod)
-3. **Rate Limiting** - 100 req/min par admin (Redis)
-4. **JWT Authentication** - Vérification signature Supabase
-5. **RBAC** - Contrôle d'accès par rôle/scope
-6. **Audit Logging** - Enregistrement immuable
-
-### Rôles
-
-- **admin**: Accès complet
-- **moderator**: Modération + lecture users
-- **support**: Messages + lecture users
-- **viewer**: Analytics + audit (lecture seule)
-
-### MFA (2FA)
-
-- TOTP obligatoire pour tous les admins
-- Compatible Google Authenticator / Authy
-- Setup: `POST /auth/setup-2fa`
-- Verify: `POST /auth/verify-2fa`
-
----
-
-## 📊 Monitoring & Logs
-
-### Health Check
-
-```bash
-curl http://localhost:8002/health
-```
-
-### Logs
-
-```bash
-# Backend logs
-tail -f /var/log/supervisor/admin-backend.*.log
-
-# Audit logs (via API)
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8002/api/admin/v1/audit/logs
-```
-
-### Métriques
-
-- Audit logs dans DB (table `admin.audit_logs`)
-- Redis pour rate limiting
-- OpenTelemetry (optionnel, à activer)
-
----
-
-## 🧪 Tests
-
-```bash
-# Tests unitaires
-pytest tests/
-
-# Tests d'intégration
-pytest tests/integration/
-
-# Coverage
-pytest --cov=app tests/
-```
-
----
-
-## 📦 Déploiement
-
-### Supervisor Config
-
-```ini
-[program:admin-backend]
-command=/usr/bin/python3 -m app.main
-directory=/app/admin-backend
-environment=PORT=8002
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/supervisor/admin-backend.err.log
-stdout_logfile=/var/log/supervisor/admin-backend.out.log
-```
-
-### Déploiement Railway
-
-1. **Créer un service**  
-   - Projet Railway → *New → Deploy from GitHub Repo*.  
-   - Root du service : `admin-backend`.  
-   - Détecter automatiquement Python + `requirements.txt`.
-
-2. **Variables d’environnement (Settings → Variables)**  
-   - Créer un group `admin-backend` pour les clés partagées.  
-   - Renseigner toutes les variables de `.env` (voir section Configuration).  
-   - Ajouter `PORT=8000` (Railway injecte `$PORT` au runtime, mais définir `PORT` explicite évite les surprises).
-
-3. **Commandes**  
-   - Build : automatique (Railway installe `requirements.txt`).  
-   - Start command :  
-     ```
-     uvicorn app.main:app --host 0.0.0.0 --port $PORT
-     ```
-
-4. **Services annexes**  
-   - Redis : ajouter un add-on Redis Railway (copier l’URL dans `REDIS_URL`).  
-   - Créer un *Variable Group* partagé si plusieurs environnements (staging/production).
-
-5. **CORS & domaines**  
-   - Ajouter l’URL Railway (`https://<service>.up.railway.app`) + les domaines Next.js dans `CORS_ORIGINS`.  
-   - Redéployer après mise à jour.
-
-6. **Tests post-déploiement**  
-   - Vérifier `/api/admin/v1/health/check`.  
-   - Tester `/api/admin/v1/docs` pour confirmer que Swagger répond.  
-   - Exécuter `curl` avec un token admin pour valider une route protégée.
-
-### Production Checklist
-
-- [ ] `.env` avec vraies credentials
-- [ ] `SECRET_KEY` généré aléatoirement
-- [ ] `ENVIRONMENT=production`
-- [ ] Redis actif pour rate limiting
-- [ ] SendGrid configuré pour e-mails
-- [ ] Moneroo configuré pour paiements
-- [ ] Schéma SQL exécuté dans Supabase
-- [ ] CORS restreint aux domaines autorisés
-- [ ] Backup automatique configuré
-- [ ] Monitoring activé
-
----
-
-## 🔗 Liens Utiles
-
-- **Supabase Dashboard**: https://app.supabase.com
-- **SendGrid Dashboard**: https://app.sendgrid.com
-- **Moneroo Dashboard**: https://dashboard.moneroo.io
-- **OpenAPI Docs**: http://localhost:8002/api/admin/v1/docs
-
----
-
-## 📞 Support
-
-Pour toute question ou problème:
-- **Email**: support@nexus-partners.xyz
-- **Documentation**: Voir `/app/admin_database_schema.sql` pour le schéma DB
-
----
-
-**Version:** 2.1.0  
-**Date:** Janvier 2025  
-**Auteur:** Équipe Technique Nexus Connect
+Bon développement côté API !
