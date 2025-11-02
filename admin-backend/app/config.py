@@ -19,7 +19,12 @@ class Settings(BaseSettings):
     ADMIN_DOMAIN: str = "admin-connect.nexus-partners.xyz"
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:3001"
+    
+
+    CORS_ORIGINS: str = "https://nexus-connect-admin.vercel.app"  # URLs séparées par des virgules
+    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_METHODS: List[str] = ["*"]
+    CORS_ALLOW_HEADERS: List[str] = ["*"]
     
     @property
     def cors_origins_list(self) -> List[str]:

@@ -49,15 +49,18 @@ async def login(credentials: LoginRequest):
     3. Retourne JWT + flag requires_2fa
     """
     try:
+        logger.info(f"Tentative de connexion pour: {credentials.email}")
         supabase = get_supabase_admin()
         
         # Authentification via Supabase
+        logger.info("Appel Supabase Auth...")
         auth_response = supabase.auth.sign_in_with_password({
             "email": credentials.email,
             "password": credentials.password
         })
         
         if not auth_response.user:
+            logger.warning("Authentification échouée: credentials invalides")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
@@ -81,7 +84,8 @@ async def login(credentials: LoginRequest):
                 detail="Admin access denied"
             )
         
-        admin_profile = admin_check.data
+        admin_profile = admin_check.data[0]
+        logger.info(f"Profil admin trouvé: role={admin_profile.get('role')}")
         
         # Mettre à jour last_login, login_count et réinitialiser MFA si requis
         requires_2fa = admin_profile.get('requires_2fa', True)
@@ -127,11 +131,13 @@ async def login(credentials: LoginRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+        logger.error(f"❌ Login error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed"
+            detail=f"Login failed: {str(e)}"
         )
+
+# ... Reste du code inchangé ...
 
 @router.post("/verify-2fa")
 async def verify_2fa(request: Verify2FARequest):
