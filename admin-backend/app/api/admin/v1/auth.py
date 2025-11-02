@@ -49,15 +49,18 @@ async def login(credentials: LoginRequest):
     3. Retourne JWT + flag requires_2fa
     """
     try:
+        logger.info(f"Tentative de connexion pour: {credentials.email}")
         supabase = get_supabase_admin()
         
         # Authentification via Supabase
+        logger.info("Appel Supabase Auth...")
         auth_response = supabase.auth.sign_in_with_password({
             "email": credentials.email,
             "password": credentials.password
         })
         
         if not auth_response.user:
+            logger.warning("Authentification échouée: credentials invalides")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
@@ -67,21 +70,41 @@ async def login(credentials: LoginRequest):
         access_token = auth_response.session.access_token
         refresh_token = auth_response.session.refresh_token
         
-        # Vérifier que l'utilisateur est admin
-        admin_check = supabase.table('admin.admin_profiles') \
-            .select('*') \
-            .eq('user_id', user.id) \
-            .eq('is_active', True) \
-            .single() \
-            .execute()
+        logger.info(f"User authentifié: {user.id}")
         
-        if not admin_check.data:
+        # ⚠️ CORRECTION ICI: Utiliser le bon nom de table
+        # Supabase Python client cherche dans le schéma 'public' par défaut
+        # Pour accéder au schéma 'admin', utilisez from_() avec le schéma
+        logger.info("Recherche du profil admin...")
+        
+        try:
+            # Méthode 1: Si admin_profiles est dans le schéma 'admin'
+            admin_check = supabase.schema('admin').table('admin_profiles') \
+                .select('*') \
+                .eq('user_id', user.id) \
+                .eq('is_active', True) \
+                .execute()
+            
+            logger.info(f"Résultat recherche: {admin_check.data}")
+            
+        except Exception as table_error:
+            logger.error(f"Erreur accès table: {str(table_error)}")
+            # Méthode 2: Si admin_profiles est dans le schéma 'public'
+            admin_check = supabase.table('admin_profiles') \
+                .select('*') \
+                .eq('user_id', user.id) \
+                .eq('is_active', True) \
+                .execute()
+        
+        if not admin_check.data or len(admin_check.data) == 0:
+            logger.error(f"Aucun profil admin trouvé pour user_id: {user.id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Admin access denied"
             )
         
-        admin_profile = admin_check.data
+        admin_profile = admin_check.data[0]
+        logger.info(f"Profil admin trouvé: role={admin_profile.get('role')}")
         
         # Mettre à jour last_login, login_count et réinitialiser MFA si requis
         requires_2fa = admin_profile.get('requires_2fa', True)
@@ -95,22 +118,33 @@ async def login(credentials: LoginRequest):
                 'mfa_verified_at': None
             })
         
-        supabase.table('admin.admin_profiles') \
-            .update(admin_update_payload) \
-            .eq('user_id', user.id) \
-            .execute()
+        try:
+            supabase.schema('admin').table('admin_profiles') \
+                .update(admin_update_payload) \
+                .eq('user_id', user.id) \
+                .execute()
+        except:
+            supabase.table('admin_profiles') \
+                .update(admin_update_payload) \
+                .eq('user_id', user.id) \
+                .execute()
         
         # Mettre à jour l'objet profil retourné
         admin_profile.update(admin_update_payload)
         
         # Log audit
-        supabase.table('admin.audit_logs').insert({
-            'event_type': 'admin.login',
-            'severity': 'LOW',
-            'user_id': user.id,
-            'admin_id': user.id,
-            'metadata': {'email': credentials.email}
-        }).execute()
+        try:
+            supabase.schema('admin').table('audit_logs').insert({
+                'event_type': 'admin.login',
+                'severity': 'LOW',
+                'user_id': user.id,
+                'admin_id': user.id,
+                'metadata': {'email': credentials.email}
+            }).execute()
+        except:
+            logger.warning("Impossible d'écrire dans audit_logs")
+        
+        logger.info("✅ Connexion réussie")
         
         return LoginResponse(
             access_token=access_token,
@@ -127,11 +161,13 @@ async def login(credentials: LoginRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+        logger.error(f"❌ Login error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed"
+            detail=f"Login failed: {str(e)}"
         )
+
+# ... Reste du code inchangé ...
 
 @router.post("/verify-2fa")
 async def verify_2fa(request: Verify2FARequest):
