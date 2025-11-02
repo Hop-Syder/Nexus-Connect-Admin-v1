@@ -30,7 +30,7 @@ API FastAPI pour le tableau de bord Nexus Connect. Elle fournit des endpoints s�
 | `audit` | Recherche/export de logs, consultation détaillée, statistiques, liste des types d'événements |
 | `settings` | Lecture/écriture des paramètres, mises à jour en masse, bascule maintenance, vérification de santé, déclenchement de backups, gestion des notifications |
 
-Toutes les routes (hors santé/auth) exigent un JWT Supabase valide et un profil admin actif (`admin.admin_profiles`).
+Toutes les routes (hors santé/auth) exigent un JWT Supabase valide et un profil admin actif (`public.admin_profiles`).
 
 ## Prérequis
 
@@ -88,7 +88,7 @@ Reportez-vous à `Settings` (toutes obligatoires sauf mention contraire) :
 
 - **Authentification** : le middleware décode les JWT Supabase, vérifie la 2FA et enrichit `request.state.admin_profile`. Utilisez `Depends(get_current_user)` ou `Depends(get_current_admin_user)` dans vos routes.
 - **Rate limiting** : désactivé si Redis indisponible (logs d'avertissement). Prévoir une instance fiable en production.
-- **Audit** : chaque action écrit dans `admin.audit_logs` avec hash SHA-256 et peut générer des notifications critiques (`admin.notifications`).
+- **Audit** : chaque action écrit dans `public.audit_logs` avec hash SHA-256 et peut générer des notifications critiques (`admin.notifications`).
 - **Exports** : les CSV/Excel sont générés en mémoire et retournés en `StreamingResponse`. Surveillez la taille pour éviter les dépassements mémoire.
 - **Sécurité** : les permissions supplémentaires peuvent être appliquées via le décorateur `require_permission`.
 

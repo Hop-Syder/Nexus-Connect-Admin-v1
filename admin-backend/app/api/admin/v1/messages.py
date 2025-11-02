@@ -269,7 +269,7 @@ async def update_message(
                 supabase.table("admin.contact_messages_metadata").insert({"message_id": message_id, **update_payload}).execute()
 
         if _requires_assignment_refresh(update_payload):
-            supabase.table("admin.audit_logs").insert(
+            supabase.table("audit_logs").insert(
                 {
                     "event_type": "message.updated",
                     "severity": "LOW",
@@ -332,7 +332,7 @@ async def reply_to_message(
             }
         ).eq("message_id", message_id).execute()
 
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "message.replied",
                 "severity": "LOW",

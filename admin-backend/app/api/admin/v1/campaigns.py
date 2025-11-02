@@ -400,7 +400,7 @@ async def send_campaign(
                 }
             ).execute()
 
-            supabase.table("admin.audit_logs").insert(
+            supabase.table("audit_logs").insert(
                 {
                     "event_type": "campaign.sent",
                     "severity": "MED",

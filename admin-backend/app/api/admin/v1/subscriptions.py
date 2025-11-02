@@ -305,7 +305,7 @@ async def grant_premium(
         supabase.table("admin.subscription_history").insert(history_payload).execute()
         
         # Audit log
-        supabase.table("admin.audit_logs").insert(
+        supabase.table("audit_logs").insert(
             {
                 "event_type": "subscription.granted",
                 "severity": "MED",
@@ -360,7 +360,7 @@ async def revoke_premium(
         }).execute()
         
         # Audit
-        supabase.table('admin.audit_logs').insert({
+        supabase.table('audit_logs').insert({
             'event_type': 'subscription.revoked',
             'severity': 'MED',
             'user_id': request.user_id,

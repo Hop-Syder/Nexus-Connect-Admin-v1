@@ -48,7 +48,7 @@ Chaque sous-projet dispose de son propre `README.md` détaillant la configuratio
 2. **Configurer Supabase et Redis** en remplissant les variables listées dans `admin-backend/app/config.py` et `admin-frontend/.env.example` (voir les sections configuration des README dédiés).
 3. **Lancer l'API** : `uvicorn app.main:app --reload --port 8002` depuis `admin-backend`.
 4. **Démarrer le front** : `npm install && npm run dev` depuis `admin-frontend`, puis ouvrir `http://localhost:3000`.
-5. **Authentification** : utilisez un compte admin Supabase actif (table `admin.admin_profiles`). Activez la 2FA depuis l'interface si nécessaire.
+5. **Authentification** : utilisez un compte admin Supabase actif (table `public.admin_profiles`). Activez la 2FA depuis l'interface si nécessaire.
 
 ## Déploiement
 

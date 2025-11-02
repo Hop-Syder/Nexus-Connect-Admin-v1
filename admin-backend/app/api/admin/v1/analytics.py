@@ -183,7 +183,7 @@ async def export_analytics_csv(
       writer = csv.DictWriter(output, fieldnames=result.data[0].keys())
       writer.writeheader()
       writer.writerows(result.data)
-    supabase.table('admin.audit_logs').insert({
+    supabase.table('audit_logs').insert({
       'event_type': 'analytics.export',
       'severity': 'HIGH',
       'admin_id': current_user['id'],

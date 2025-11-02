@@ -138,7 +138,7 @@ def _fetch_summary(
     """Return severity distribution and last critical event timestamp."""
     summary: Dict[str, Any] = {"by_severity": {}, "last_critical_at": None}
     try:
-        base_query = supabase.table("admin.audit_logs").select(
+        base_query = supabase.table("audit_logs").select(
             "severity, count:id", count="exact", group="severity"
         )
         base_query = _apply_filters(
@@ -159,7 +159,7 @@ def _fetch_summary(
                 count_value = 0
             summary["by_severity"][sev] = count_value
 
-        critical_query = supabase.table("admin.audit_logs").select("created_at").eq(
+        critical_query = supabase.table("audit_logs").select("created_at").eq(
             "severity", "CRIT"
         )
         critical_query = _apply_filters(
@@ -228,7 +228,7 @@ async def get_audit_logs(
         # Backwards compatibility with user_id/admin_id params
         actor_value = actor or admin_id or user_id
 
-        query = supabase.table("admin.audit_logs").select("*")
+        query = supabase.table("audit_logs").select("*")
 
         query = _apply_filters(
             query,
@@ -288,7 +288,7 @@ async def get_audit_log(
         supabase = get_supabase_admin()
 
         result = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("*")
             .eq("id", log_id)
             .single()
@@ -334,7 +334,7 @@ async def export_audit_logs(
             [event_type] if event_type else None
         )
 
-        query = supabase.table("admin.audit_logs").select("*")
+        query = supabase.table("audit_logs").select("*")
         query = _apply_filters(
             query,
             severities=normalized_severities,
@@ -389,7 +389,7 @@ async def export_audit_logs(
             },
         }
         export_event["log_hash"] = _compute_log_hash(export_event)
-        supabase.table("admin.audit_logs").insert(export_event).execute()
+        supabase.table("audit_logs").insert(export_event).execute()
 
         filename = f"audit_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
@@ -424,7 +424,7 @@ async def get_audit_stats(
 
         # Events critiques
         critical = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("id", count="exact")
             .eq("severity", "CRIT")
             .gte("created_at", start_date.isoformat())
@@ -433,7 +433,7 @@ async def get_audit_stats(
 
         # Événements par type (groupés)
         event_counts_resp = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("event_type, count:id", count="exact", group="event_type")
             .gte("created_at", start_date.isoformat())
             .execute()
@@ -453,7 +453,7 @@ async def get_audit_stats(
 
         # Distribution par sévérité
         severity_counts_resp = (
-            supabase.table("admin.audit_logs")
+            supabase.table("audit_logs")
             .select("severity, count:id", count="exact", group="severity")
             .gte("created_at", start_date.isoformat())
             .execute()

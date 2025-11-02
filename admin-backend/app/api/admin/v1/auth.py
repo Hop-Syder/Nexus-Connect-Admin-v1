@@ -70,34 +70,15 @@ async def login(credentials: LoginRequest):
         access_token = auth_response.session.access_token
         refresh_token = auth_response.session.refresh_token
         
-        logger.info(f"User authentifié: {user.id}")
+        # Vérifier que l'utilisateur est admin
+        admin_check = supabase.table('admin_profiles') \
+            .select('*') \
+            .eq('user_id', user.id) \
+            .eq('is_active', True) \
+            .single() \
+            .execute()
         
-        # ⚠️ CORRECTION ICI: Utiliser le bon nom de table
-        # Supabase Python client cherche dans le schéma 'public' par défaut
-        # Pour accéder au schéma 'admin', utilisez from_() avec le schéma
-        logger.info("Recherche du profil admin...")
-        
-        try:
-            # Méthode 1: Si admin_profiles est dans le schéma 'admin'
-            admin_check = supabase.schema('admin').table('admin_profiles') \
-                .select('*') \
-                .eq('user_id', user.id) \
-                .eq('is_active', True) \
-                .execute()
-            
-            logger.info(f"Résultat recherche: {admin_check.data}")
-            
-        except Exception as table_error:
-            logger.error(f"Erreur accès table: {str(table_error)}")
-            # Méthode 2: Si admin_profiles est dans le schéma 'public'
-            admin_check = supabase.table('admin_profiles') \
-                .select('*') \
-                .eq('user_id', user.id) \
-                .eq('is_active', True) \
-                .execute()
-        
-        if not admin_check.data or len(admin_check.data) == 0:
-            logger.error(f"Aucun profil admin trouvé pour user_id: {user.id}")
+        if not admin_check.data:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Admin access denied"
@@ -118,33 +99,22 @@ async def login(credentials: LoginRequest):
                 'mfa_verified_at': None
             })
         
-        try:
-            supabase.schema('admin').table('admin_profiles') \
-                .update(admin_update_payload) \
-                .eq('user_id', user.id) \
-                .execute()
-        except:
-            supabase.table('admin_profiles') \
-                .update(admin_update_payload) \
-                .eq('user_id', user.id) \
-                .execute()
+        supabase.table('admin_profiles') \
+            .update(admin_update_payload) \
+            .eq('user_id', user.id) \
+            .execute()
         
         # Mettre à jour l'objet profil retourné
         admin_profile.update(admin_update_payload)
         
         # Log audit
-        try:
-            supabase.schema('admin').table('audit_logs').insert({
-                'event_type': 'admin.login',
-                'severity': 'LOW',
-                'user_id': user.id,
-                'admin_id': user.id,
-                'metadata': {'email': credentials.email}
-            }).execute()
-        except:
-            logger.warning("Impossible d'écrire dans audit_logs")
-        
-        logger.info("✅ Connexion réussie")
+        supabase.table('audit_logs').insert({
+            'event_type': 'admin.login',
+            'severity': 'LOW',
+            'user_id': user.id,
+            'admin_id': user.id,
+            'metadata': {'email': credentials.email}
+        }).execute()
         
         return LoginResponse(
             access_token=access_token,
@@ -179,7 +149,7 @@ async def verify_2fa(request: Verify2FARequest):
         supabase = get_supabase_admin()
         
         # Récupérer le profil admin
-        admin_profile = supabase.table('admin.admin_profiles') \
+        admin_profile = supabase.table('admin_profiles') \
             .select('*') \
             .eq('user_id', request.user_id) \
             .single() \
@@ -209,7 +179,7 @@ async def verify_2fa(request: Verify2FARequest):
             )
         
         # Marquer comme vérifié
-        supabase.table('admin.admin_profiles') \
+        supabase.table('admin_profiles') \
             .update({
                 'mfa_verified': True,
                 'mfa_verified_at': datetime.utcnow().isoformat()
@@ -268,7 +238,7 @@ async def logout(current_user: dict = Depends(get_current_user)):
         supabase.auth.sign_out()
         
         # Log audit
-        supabase.table('admin.audit_logs').insert({
+        supabase.table('audit_logs').insert({
             'event_type': 'admin.logout',
             'severity': 'LOW',
             'user_id': current_user['id'],
@@ -297,7 +267,7 @@ async def setup_2fa(current_user: dict = Depends(get_current_user)):
         secret = pyotp.random_base32()
         
         # Sauvegarder le secret (temporairement non vérifié)
-        supabase.table('admin.admin_profiles') \
+        supabase.table('admin_profiles') \
             .update({
                 'mfa_secret': secret,
                 'mfa_verified': False
@@ -332,7 +302,7 @@ async def get_current_admin(current_user: dict = Depends(get_current_user)):
         supabase = get_supabase_admin()
         
         # Récupérer le profil complet
-        admin_profile = supabase.table('admin.admin_profiles') \
+        admin_profile = supabase.table('admin_profiles') \
             .select('*') \
             .eq('user_id', current_user['id']) \
             .single() \
